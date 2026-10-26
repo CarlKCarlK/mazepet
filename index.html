@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Diagonal maze</title>
+<style>
+  :root { color-scheme: dark; font-family: system-ui, sans-serif; background: #17152b; color: #e5dffd; }
+  body { max-width: 1100px; margin: 36px auto; padding: 0 20px; }
+  h1 { font-size: 24px; margin-bottom: 20px; font-weight: 600; }
+  form { display: flex; flex-wrap: wrap; align-items: end; gap: 14px; margin-bottom: 24px; }
+  label { display: grid; gap: 6px; font-size: 14px; }
+  input, button { font: inherit; border-radius: 6px; padding: 9px 12px; }
+  input { width: 76px; border: 1px solid #625b83; background: #242039; color: inherit; }
+  button { background: #c6b3ff; border: 1px solid #c6b3ff; color: #211b35; cursor: pointer; font-weight: 600; }
+  button:hover { background: #ddd0ff; }
+  button:focus-visible, input:focus-visible { outline: 2px solid white; outline-offset: 3px; }
+  .viewport { overflow: auto; padding: 16px; background: #211d40; border: 1px solid #484064; border-radius: 8px; }
+  canvas { display: block; }
+  p { font-size: 13px; color: #b7adce; }
+</style>
+<h1>Diagonal maze</h1>
+<form id="controls">
+  <label>Width <input id="width" type="number" min="1" value="40" required></label>
+  <label>Height <input id="height" type="number" min="1" value="25" required></label>
+  <button type="submit">Generate</button>
+  <button id="solve" type="button">Solve</button>
+</form>
+<div class="viewport"><canvas id="maze" role="img" aria-label="Diagonal maze with an entrance at the upper left and exit at the lower right"></canvas></div>
+<p>Enter on the left at the top; exit on the right at the bottom. All passages are connected.</p>
+<script src="maze.js"></script>
+<script>
+  'use strict';
+  const canvas = document.getElementById('maze');
+  let maze;
+  let solution = [];
+  function generate() {
+    maze = Maze.generateMaze(Number(document.getElementById('width').value), Number(document.getElementById('height').value));
+    solution = [];
+    render();
+  }
+  function render() {
+    const size = 20, margin = 4;
+    const width = maze.width * size + 2 * margin;
+    const height = maze.height * size + 2 * margin;
+    // Cap backing resolution for large mazes while keeping logical cells square.
+    const ratio = Math.min(window.devicePixelRatio || 1, 2, 8192 / Math.max(width, height));
+    canvas.width = Math.ceil(width * ratio);
+    canvas.height = Math.ceil(height * ratio);
+    canvas.style.width = width + 'px';
+    canvas.style.height = height + 'px';
+    const ctx = canvas.getContext('2d');
+    ctx.scale(ratio, ratio);
+    ctx.translate(margin, margin);
+    ctx.strokeStyle = '#c6b3ff';
+    ctx.lineWidth = 1.5;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    function wall(x1, y1, x2, y2) { ctx.moveTo(x1 * size, y1 * size); ctx.lineTo(x2 * size, y2 * size); }
+    // Use exact shared endpoints. Font glyph bounding boxes do not guarantee
+    // that the ends of a diagonal actually reach opposite tile corners.
+    maze.tiles.forEach((tile, i) => {
+      if (maze.removed.has(i)) return;
+      const x = i % maze.width, y = Math.floor(i / maze.width);
+      if (tile === '/') wall(x, y + 1, x + 1, y);
+      else wall(x, y, x + 1, y + 1);
+    });
+    wall(0, 0, maze.width, 0);
+    wall(0, maze.height, maze.width, maze.height);
+    if (maze.height > 1) {
+      wall(0, 1, 0, maze.height);
+      wall(maze.width, 0, maze.width, maze.height - 1);
+    }
+    ctx.stroke();
+    if (solution.length) {
+      ctx.strokeStyle = '#ffd479';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      const points = Maze.solutionPoints(maze, solution);
+      ctx.moveTo(points[0][0] * size, points[0][1] * size);
+      for (const [x, y] of points.slice(1)) ctx.lineTo(x * size, y * size);
+      ctx.stroke();
+    }
+  }
+  document.getElementById('controls').addEventListener('submit', event => { event.preventDefault(); generate(); });
+  document.getElementById('solve').addEventListener('click', () => {
+    solution = Maze.solveMaze(maze);
+    render();
+  });
+  generate();
+</script>
+</html>

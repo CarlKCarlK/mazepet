@@ -27,6 +27,10 @@ The use of AI tools is permitted for development and contributions to this repos
 
 All code and documentation contributed to this repository must be reviewed, edited, and validated by a human contributor. AI tools are not a substitute for design judgment, testing, or responsibility for correctness.
 
+## Deployment
+
+The [GitHub Pages workflow](.github/workflows/pages.yml) runs the tests and publishes the maze on each push to `main`. It can also be run manually from the Actions tab.
+
 ## License
 
 Licensed under either:

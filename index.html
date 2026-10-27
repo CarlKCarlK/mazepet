@@ -21,7 +21,7 @@
   canvas { display: block; }
   p { font-size: 13px; color: #b7adce; line-height: 1.5; }
   .hint { margin: 8px 0; }
-  details { max-width: 72ch; }
+  details { max-width: 72ch; margin-bottom: 10px; }
   summary { width: fit-content; cursor: pointer; font-size: 13px; color: #c6b3ff; }
   details pre { white-space: pre-wrap; padding: 10px 12px; background: #211d40; border-radius: 5px; }
   @media (max-width: 640px) {
@@ -40,14 +40,14 @@
   </form>
   <a class="source" href="https://github.com/CarlKCarlK/mazepet">GitHub</a>
 </header>
-<div class="viewport"><canvas id="maze" role="img" aria-label="Diagonal maze with an entrance at the upper left and exit at the lower right"></canvas></div>
-<p class="hint">Enter on the left at the top; exit on the right at the bottom.</p>
 <details>
   <summary>About mazepet &amp; 10 PRINT</summary>
   <p>Inspired by the Commodore 64's <a href="https://10print.org/">10 PRINT</a>, which draws a maze-like picture from random PETSCII diagonals:</p>
   <pre><code class="language-basic">10 PRINT CHR$(205.5+RND(1)); : GOTO 10</code></pre>
   <p>mazepet repairs that random picture into a solvable maze while trying to preserve its original diagonals.</p>
 </details>
+<div class="viewport"><canvas id="maze" role="img" aria-label="Diagonal maze with an entrance at the upper left and exit at the lower right"></canvas></div>
+<p class="hint">Enter on the left at the top; exit on the right at the bottom.</p>
 <script src="maze.js"></script>
 <script>
   'use strict';

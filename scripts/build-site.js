@@ -9,11 +9,9 @@ const compareVersions = (a, b) => {
   return left[0] - right[0] || left[1] - right[1] || left[2] - right[2];
 };
 
-function redirect(target) {
+function redirect(target, head = '<meta charset="utf-8"><title>mazepet</title><meta name="viewport" content="width=device-width, initial-scale=1">') {
   return `<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><title>mazepet</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-</head><body><a href="${target}">Open mazepet</a>
+<html lang="en"><head>${head}</head><body><a href="${target}">Open mazepet</a>
 <script>location.replace(${JSON.stringify(target)} + location.search + location.hash);</script>
 </body></html>\n`;
 }
@@ -71,7 +69,10 @@ function buildSite({ repo = process.cwd(), out = path.join(repo, '_site'), previ
     fs.writeFileSync(htmlPath, html);
     manifest.push({ version, commit: tag ? git(['rev-list', '-1', tag]).toString().trim() : 'preview' });
   }
-  fs.writeFileSync(path.join(out, 'index.html'), redirect(`./v${versions.at(-1)}/`));
+  // Social crawlers read metadata without running the redirect script.
+  const latestHTML = fs.readFileSync(path.join(out, `v${versions.at(-1)}`, 'index.html'), 'utf8');
+  const latestHead = latestHTML.match(/<head>([\s\S]*?)<\/head>/)?.[1];
+  fs.writeFileSync(path.join(out, 'index.html'), redirect(`./v${versions.at(-1)}/`, latestHead));
   // Preserve previously published asset URLs used in social cards and bookmarks.
   const latestAssets = path.join(out, `v${versions.at(-1)}`, 'assets');
   if (fs.existsSync(latestAssets)) fs.cpSync(latestAssets, path.join(out, 'assets'), { recursive: true });

@@ -2,7 +2,7 @@
 
 [Play mazepet in your browser](https://carlkcarlk.github.io/mazepet/).
 
-[![A purple maze made from diagonal walls. Click to play mazepet.](assets/maze-example.png)](https://carlkcarlk.github.io/mazepet/)
+[![mazepet showing a 25 by 20 diagonal maze with its solution highlighted in gold. Click to play.](assets/social-preview.png)](https://carlkcarlk.github.io/mazepet/)
 
 Inspired by the Commodore 64's [10 PRINT](https://10print.org/), which draws a maze-like picture from random PETSCII diagonals:
 

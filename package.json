@@ -1,6 +1,6 @@
 {
   "name": "mazepet",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "description": "A playable maze from random PETSCII diagonals",
   "license": "(MIT OR Apache-2.0)",

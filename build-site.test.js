@@ -22,7 +22,7 @@ test('release builds retain exact tagged files and select the latest release num
   assert.throws(() => buildSite({ repo, out }), /No stable release/);
   for (const version of ['1.0.0', '1.2.0', '1.10.0', '2.0.0']) {
     fs.writeFileSync(path.join(repo, 'package.json'), JSON.stringify({ version }));
-    fs.writeFileSync(path.join(repo, 'index.html'), '<meta name="mazepet-version" content="development">');
+    fs.writeFileSync(path.join(repo, 'index.html'), '<head><meta name="mazepet-version" content="development"><meta property="og:image" content="https://carlkcarlk.github.io/mazepet/assets/social-preview.png"></head>');
     fs.writeFileSync(path.join(repo, 'maze.js'), `// ${version}`);
     git('add', 'package.json', 'site-files.json', 'index.html', 'maze.js', 'assets');
     git('commit', '-m', version);
@@ -36,6 +36,7 @@ test('release builds retain exact tagged files and select the latest release num
   assert.equal(fs.existsSync(path.join(out, 'v1')), false);
   assert.equal(fs.existsSync(path.join(out, 'v2')), false);
   assert.match(fs.readFileSync(path.join(out, 'index.html'), 'utf8'), /\.\/v2\.0\.0\//);
+  assert.match(fs.readFileSync(path.join(out, 'index.html'), 'utf8'), /property="og:image" content="https:\/\/carlkcarlk.github.io\/mazepet\/v2\.0\.0\/assets\/social-preview.png"/);
   assert.equal(fs.readFileSync(path.join(out, 'v1.0.0', 'assets', 'icon.svg'), 'utf8'), '<svg/>');
   assert(fs.existsSync(path.join(out, '.nojekyll')));
   fs.rmSync(out, { recursive: true });

@@ -75,6 +75,7 @@
 <script>
   'use strict';
   const canvas = document.getElementById('maze');
+  const size = 20, margin = 4;
   let maze;
   let solution = [];
   function generate() {
@@ -83,7 +84,6 @@
     render();
   }
   function render() {
-    const size = 20, margin = 4;
     const width = maze.width * size + 2 * margin;
     const height = maze.height * size + 2 * margin;
     // Cap backing resolution for large mazes while keeping logical cells square.
@@ -131,6 +131,27 @@
     solution = Maze.solveMaze(maze);
     render();
   });
+  // Pick the initial proportions from the usable viewport, not a device name.
+  // Run only on load: resizing or zooming must not replace the user's maze.
+  function setInitialDimensions() {
+    const frame = document.querySelector('.viewport');
+    const frameStyle = getComputedStyle(frame);
+    const bodyStyle = getComputedStyle(document.body);
+    const hint = document.querySelector('.hint');
+    const hintStyle = getComputedStyle(hint);
+    const horizontalFrame = parseFloat(frameStyle.paddingLeft) + parseFloat(frameStyle.paddingRight)
+      + parseFloat(frameStyle.borderLeftWidth) + parseFloat(frameStyle.borderRightWidth);
+    const verticalFrame = parseFloat(frameStyle.paddingTop) + parseFloat(frameStyle.paddingBottom)
+      + parseFloat(frameStyle.borderTopWidth) + parseFloat(frameStyle.borderBottomWidth);
+    const availableWidth = document.documentElement.clientWidth
+      - parseFloat(bodyStyle.marginLeft) - parseFloat(bodyStyle.marginRight) - horizontalFrame - 2 * margin;
+    const availableHeight = document.documentElement.clientHeight - frame.getBoundingClientRect().top
+      - parseFloat(bodyStyle.marginBottom) - verticalFrame - 2 * margin
+      - hint.getBoundingClientRect().height - parseFloat(hintStyle.marginTop) - parseFloat(hintStyle.marginBottom);
+    document.getElementById('width').value = Math.max(1, Math.floor(availableWidth / size));
+    document.getElementById('height').value = Math.max(1, Math.floor(availableHeight / size));
+  }
+  setInitialDimensions();
   generate();
 </script>
 </body>

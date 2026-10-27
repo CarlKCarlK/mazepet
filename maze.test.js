@@ -37,7 +37,27 @@ test('diagonal-only repairs connect all rooms, including narrow and single-tile 
 });
 
 test('rejects invalid sizes', () => {
-  for (const value of [0, -1, 1.5, NaN, Infinity]) assert.throws(() => generateMaze(value, 10));
+  for (const value of [0, -1, 1.5, NaN, Infinity]) {
+    assert.throws(() => generateMaze(value, 10));
+  }
+});
+
+test('attaches an original wall island instead of deleting its diagonals', () => {
+  function randomFrom(seed) {
+    return () => ((seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 2 ** 32);
+  }
+  const originalRandom = randomFrom(10);
+  const original = Array.from({ length: 36 }, () => originalRandom() < 0.5 ? '/' : '\\');
+  const maze = generateMaze(6, 6, randomFrom(10));
+  // In this starting picture, tiles 16 and 21 form a two-wall island.
+  // The delete-islands version changed 14 tiles and lost one of these walls.
+  // Both original island walls can survive when attached through open tiles.
+  for (const i of [16, 21]) {
+    assert(!maze.removed.has(i));
+    assert.equal(maze.tiles[i], original[i]);
+  }
+  const edits = maze.tiles.reduce((n, tile, i) => n + Number(maze.removed.has(i) || tile !== original[i]), 0);
+  assert(edits <= 13, `expected fewer than the former 14 edits, got ${edits}`);
 });
 
 test('centered solutions use grid-aligned segments and never cross diagonal walls', () => {

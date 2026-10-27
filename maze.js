@@ -102,8 +102,66 @@
       });
     }
     buildWalls();
-    // Detached wall trees can be walked around. Remove them before growing
-    // new walls exclusively from the border-connected wall network.
+    // Preserve islands by attaching them through empty tiles first. Search
+    // the wall-component graph for short paths to the border, favoring large
+    // islands when paths compete for the two orientations of the same tile.
+    // Filling an already edited tile preserves more original diagonals than
+    // deleting an island. This is a heuristic, not a global minimum-edit proof.
+    function attachIslands() {
+      let progress;
+      do {
+        progress = false;
+        const border = wallRoot(0);
+        const sizes = new Map();
+        tiles.forEach((tile, i) => {
+          if (removed.has(i)) return;
+          const component = wallRoot(ends(i, tile)[0]);
+          if (component !== border) sizes.set(component, (sizes.get(component) ?? 0) + 1);
+        });
+        if (!sizes.size) break;
+        const adjacency = new Map();
+        function add(a, b, edge) {
+          if (!adjacency.has(a)) adjacency.set(a, []);
+          adjacency.get(a).push({ next: b, edge });
+        }
+        for (const i of removed) for (const tile of [tiles[i], tiles[i] === '/' ? '\\' : '/']) {
+          const [a, b] = ends(i, tile), ra = wallRoot(a), rb = wallRoot(b);
+          if (ra === rb) continue;
+          const edge = { i, tile, a, b };
+          add(ra, rb, edge); add(rb, ra, edge);
+        }
+        const previous = new Map([[border, null]]), queue = [border];
+        for (let head = 0; head < queue.length; head++) {
+          const component = queue[head];
+          for (const { next, edge } of adjacency.get(component) ?? []) {
+            if (previous.has(next)) continue;
+            previous.set(next, { component, edge });
+            queue.push(next);
+          }
+        }
+        const islands = [...sizes.keys()].filter(c => previous.has(c))
+          .sort((a, b) => sizes.get(b) - sizes.get(a));
+        for (const island of islands) {
+          if (wallRoot(island) === wallRoot(0)) continue;
+          const path = [];
+          for (let c = island; c !== border;) {
+            const step = previous.get(c);
+            path.push(step.edge);
+            c = step.component;
+          }
+          // Another island's path may already have used the opposite diagonal.
+          if (path.some(e => !removed.has(e.i) && tiles[e.i] !== e.tile)) continue;
+          for (const edge of path.reverse()) {
+            if (!removed.has(edge.i) || !joinWall(edge.a, edge.b)) continue;
+            tiles[edge.i] = edge.tile;
+            removed.delete(edge.i);
+            progress = true;
+          }
+        }
+      } while (progress);
+    }
+    attachIslands();
+    // Only islands with no available attachment are erased as a fallback.
     tiles.forEach((tile, i) => {
       if (!removed.has(i) && wallRoot(ends(i, tile)[0]) !== wallRoot(0)) removed.add(i);
     });

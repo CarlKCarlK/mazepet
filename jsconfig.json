@@ -1,0 +1,11 @@
+{
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": false,
+    "noEmit": true,
+    "strict": true,
+    "target": "ES2022",
+    "module": "commonjs"
+  },
+  "include": ["maze-state.js", "app.js", "browser-globals.d.ts"]
+}

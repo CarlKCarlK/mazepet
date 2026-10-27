@@ -1,0 +1,19 @@
+{
+  "name": "mazepet",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A playable maze from random PETSCII diagonals",
+  "license": "(MIT OR Apache-2.0)",
+  "scripts": {
+    "test": "node --test *.test.js",
+    "test:browser": "playwright test",
+    "check": "tsc -p jsconfig.json && node --check app.js",
+    "build": "node scripts/build-site.js",
+    "preview": "python3 -m http.server 8000 --bind 127.0.0.1 --directory _site"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1",
+    "@types/node": "26.6.5",
+    "typescript": "7.0.2"
+  }
+}

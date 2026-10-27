@@ -8,6 +8,7 @@
     }
     const count = width * height;
     const tiles = Array.from({ length: count }, () => random() < 0.5 ? '/' : '\\');
+    const originalTiles = tiles.slice();
     const parent = Array.from({ length: 2 * count }, (_, i) => i);
     const rank = new Uint8Array(2 * count);
     const find = n => {
@@ -184,7 +185,17 @@
       }
     } while (added);
 
-    // A flipped tile changes which triangular room touches each side.
+    return { ...createLayout(width, height, tiles, removed), originalTiles };
+  }
+
+  // Build passages from the displayed diagonals, including flipped tiles.
+  function createLayout(width, height, tiles, removed = new Set()) {
+    function room(i, side) {
+      if (side === 'top') return 2 * i;
+      if (side === 'bottom') return 2 * i + 1;
+      const left = tiles[i] === '/' ? 0 : 1;
+      return 2 * i + (side === 'left' ? left : 1 - left);
+    }
     const passages = [];
     for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
       const i = y * width + x;
@@ -193,7 +204,11 @@
       if (removed.has(i)) passages.push([2 * i, 2 * i + 1]);
     }
     return { width, height, tiles, removed, passages,
-      entrance: room(0, 'left'), exit: room(count - 1, 'right') };
+      entrance: room(0, 'left'), exit: room(width * height - 1, 'right') };
+  }
+
+  function createOriginalMaze(maze) {
+    return createLayout(maze.width, maze.height, maze.originalTiles.slice());
   }
 
   function solveMaze(maze) {
@@ -352,7 +367,7 @@
   }
 
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { generateMaze, solveMaze, solutionPoints, roomPoint, createTrace, toUnicode };
+    module.exports = { generateMaze, createOriginalMaze, solveMaze, solutionPoints, roomPoint, createTrace, toUnicode };
     if (require.main === module) {
       try {
         const maze = generateMaze(Number(process.argv[2] ?? 30), Number(process.argv[3] ?? 15));
@@ -362,5 +377,5 @@
         process.exitCode = 1;
       }
     }
-  } else root.Maze = { generateMaze, solveMaze, solutionPoints, roomPoint, createTrace, toUnicode };
+  } else root.Maze = { generateMaze, createOriginalMaze, solveMaze, solutionPoints, roomPoint, createTrace, toUnicode };
 })(typeof globalThis === 'undefined' ? this : globalThis);

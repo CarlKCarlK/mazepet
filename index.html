@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="mazepet-version" content="development">
 <title>mazepet</title>
 <meta name="description" content="Random PETSCII diagonals become a solvable maze. Inspired by the Commodore 64’s 10 PRINT.">
 <link rel="canonical" href="https://carlkcarlk.github.io/mazepet/">
@@ -31,6 +32,7 @@
   h1 { font-size: 22px; margin: 0; font-weight: 600; }
   form { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 0; }
   .size-fields, .actions { display: flex; align-items: center; gap: 10px; }
+  .actions { flex-wrap: wrap; }
   label { display: flex; align-items: center; gap: 6px; font-size: 13px; }
   input, button { font: inherit; border-radius: 5px; padding: 6px 9px; }
   input { width: 56px; border: 1px solid #625b83; background: #242039; color: inherit; }
@@ -39,8 +41,20 @@
   button:focus-visible, input:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px solid white; outline-offset: 3px; }
   .source { font-size: 13px; }
   a { color: #c6b3ff; }
-  .viewport { width: max-content; padding: 10px; background: #211d40; border: 1px solid #484064; border-radius: 8px; }
-  canvas { display: block; touch-action: none; cursor: crosshair; }
+  .viewport { position: relative; width: max-content; padding: 10px; background: #211d40; border: 1px solid #484064; border-radius: 8px; }
+  .viewport.completed { border-color: #9fffc3; box-shadow: 0 0 18px #9fffc355; }
+  .completion { position: absolute; inset: 0; display: grid; place-items: center; padding: 12px; pointer-events: none; }
+  .completion[hidden] { display: none; }
+  .completion-card { max-width: 100%; padding: 16px 20px; border: 2px solid #9fffc3; border-radius: 12px; background: #17352a; color: #d6ffe5; text-align: center; box-shadow: 0 6px 28px #0009; animation: celebrate 550ms ease-out; }
+  .completion-card strong { display: block; font-size: clamp(18px, 5vw, 30px); }
+  .completion-card span { display: block; margin-top: 4px; font-size: 14px; }
+  @keyframes celebrate {
+    0% { transform: scale(.8); opacity: 0; }
+    65% { transform: scale(1.06); opacity: 1; }
+    100% { transform: scale(1); }
+  }
+  @media (prefers-reduced-motion: reduce) { .completion-card { animation: none; } }
+  canvas { display: block; touch-action: pinch-zoom; cursor: crosshair; }
   #status { color: #ffd479; }
   p { font-size: 13px; color: #b7adce; line-height: 1.5; }
   .hint { margin: 8px 0; }
@@ -59,13 +73,16 @@
   <h1>mazepet</h1>
   <form id="controls">
     <div class="size-fields">
-      <label>Width <input id="width" type="number" min="1" value="40" required></label>
-      <label>Height <input id="height" type="number" min="1" value="25" required></label>
+      <label>Width <input id="width" type="number" min="1" max="200" value="25" required></label>
+      <label>Height <input id="height" type="number" min="1" max="200" value="20" required></label>
     </div>
     <div class="actions">
       <button type="submit">Generate</button>
       <button id="solve" type="button">Solve</button>
       <button id="restart" type="button">Start over</button>
+      <button id="toggle-original" type="button" aria-controls="maze" aria-pressed="false">Show original PETSCII</button>
+      <button id="share" type="button">Share</button>
+      <button id="copy-link" type="button">Copy link</button>
     </div>
   </form>
   <a class="source" href="https://github.com/CarlKCarlK/mazepet">GitHub</a>
@@ -75,163 +92,24 @@
   <p>Inspired by the Commodore 64's <a href="https://10print.org/">10 PRINT</a>, which draws a maze-like picture from random PETSCII diagonals:</p>
   <pre><code class="language-basic">10 PRINT CHR$(205.5+RND(1)); : GOTO 10</code></pre>
   <p>mazepet repairs that random picture into a solvable maze while trying to preserve its original diagonals.</p>
+  <p>Version <span id="version">development</span>. Share a link to play the same maze and mode. Each dimension can be up to 200 cells, with at most 10,000 cells total.</p>
 </details>
-<div class="viewport"><canvas id="maze" role="img" aria-label="Interactive diagonal maze. Tap ahead or drag from the upper-left entrance to the lower-right exit." aria-describedby="instructions"></canvas></div>
+<p id="share-status" role="status" aria-live="polite" hidden></p>
+<input id="share-link" type="text" readonly aria-label="Maze link to copy" hidden style="width: min(90%, 60ch)">
+<div class="viewport" id="maze-frame">
+  <canvas id="maze" role="img" aria-label="Interactive diagonal maze. Tap ahead or drag from the upper-left entrance to the lower-right exit." aria-describedby="instructions"></canvas>
+  <div class="completion" id="completion" role="status" aria-live="polite" hidden>
+    <div class="completion-card"><strong>Maze complete!</strong><span>You reached the exit.</span></div>
+  </div>
+</div>
 <p class="hint" id="instructions">Tap or click a little ahead of the line, or drag, to reach the lower-right exit.
   You don’t need to grab the dot: short jumps follow a clear passage, including bends.
   Steer clearly at forks. Tap or drag back along your route to erase steps.
-  Scroll outside the maze to move the page.<br>
+  Pinch with two fingers to zoom. Scroll outside the maze to move the page.<br>
+  <span id="layout-note"></span>
   <span id="status" role="status" aria-live="polite">Tap a little ahead of the upper-left entrance.</span></p>
 <script src="maze.js"></script>
-<script>
-  'use strict';
-  const canvas = document.getElementById('maze');
-  const size = 20, margin = 4;
-  let maze;
-  let solution = [];
-  let trace;
-  let activePointer = null;
-  let lastPoint = null;
-  const status = document.getElementById('status');
-  function restart() {
-    if (activePointer !== null && canvas.hasPointerCapture(activePointer)) canvas.releasePointerCapture(activePointer);
-    activePointer = null;
-    lastPoint = null;
-    solution = [];
-    trace = Maze.createTrace(maze);
-    status.textContent = 'Tap a little ahead of the upper-left entrance.';
-    render();
-  }
-  function generate() {
-    maze = Maze.generateMaze(Number(document.getElementById('width').value), Number(document.getElementById('height').value));
-    restart();
-  }
-  function render() {
-    const width = maze.width * size + 2 * margin;
-    const height = maze.height * size + 2 * margin;
-    // Cap backing resolution for large mazes while keeping logical cells square.
-    const ratio = Math.min(window.devicePixelRatio || 1, 2, 8192 / Math.max(width, height));
-    canvas.width = Math.ceil(width * ratio);
-    canvas.height = Math.ceil(height * ratio);
-    canvas.style.width = width + 'px';
-    canvas.style.height = height + 'px';
-    const ctx = canvas.getContext('2d');
-    ctx.scale(ratio, ratio);
-    ctx.translate(margin, margin);
-    ctx.strokeStyle = '#c6b3ff';
-    ctx.lineWidth = 1.5;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.beginPath();
-    function wall(x1, y1, x2, y2) { ctx.moveTo(x1 * size, y1 * size); ctx.lineTo(x2 * size, y2 * size); }
-    // Use exact shared endpoints. Font glyph bounding boxes do not guarantee
-    // that the ends of a diagonal actually reach opposite tile corners.
-    maze.tiles.forEach((tile, i) => {
-      if (maze.removed.has(i)) return;
-      const x = i % maze.width, y = Math.floor(i / maze.width);
-      if (tile === '/') wall(x, y + 1, x + 1, y);
-      else wall(x, y, x + 1, y + 1);
-    });
-    wall(0, 0, maze.width, 0);
-    wall(0, maze.height, maze.width, maze.height);
-    if (maze.height > 1) {
-      wall(0, 1, 0, maze.height);
-      wall(maze.width, 0, maze.width, maze.height - 1);
-    }
-    ctx.stroke();
-    const path = solution.length ? solution : trace.path;
-    if (path.length) {
-      ctx.strokeStyle = '#ffd479';
-      ctx.lineWidth = 2.5;
-      ctx.beginPath();
-      const points = Maze.solutionPoints(maze, path, solution.length > 0 || trace.complete);
-      ctx.moveTo(points[0][0] * size, points[0][1] * size);
-      for (const [x, y] of points.slice(1)) ctx.lineTo(x * size, y * size);
-      ctx.stroke();
-    }
-    if (!solution.length) {
-      const [x, y] = Maze.roomPoint(maze, trace.path[trace.path.length - 1]);
-      ctx.fillStyle = trace.complete ? '#9fffc3' : '#ffd479';
-      ctx.beginPath();
-      ctx.arc(x * size, y * size, 4, 0, 2 * Math.PI);
-      ctx.fill();
-    }
-  }
-  function pointerPoint(event) {
-    const rect = canvas.getBoundingClientRect();
-    return [(event.clientX - rect.left - margin) / size, (event.clientY - rect.top - margin) / size];
-  }
-  canvas.addEventListener('pointerdown', event => {
-    if (activePointer !== null || !event.isPrimary || event.button !== 0) return;
-    const point = pointerPoint(event);
-    const tip = Maze.roomPoint(maze, trace.path[trace.path.length - 1]);
-    const jumped = trace.jump(point);
-    if (!jumped && Math.hypot(point[0] - tip[0], point[1] - tip[1]) > 1.2) {
-      status.textContent = 'Tap a little closer, along a clear passage.';
-      return;
-    }
-    event.preventDefault();
-    activePointer = event.pointerId;
-    lastPoint = point;
-    canvas.setPointerCapture(event.pointerId);
-    solution = [];
-    status.textContent = trace.complete ? 'Maze complete! Well done!' : 'Tap ahead or keep dragging along the passage.';
-    render();
-  });
-  canvas.addEventListener('pointermove', event => {
-    if (event.pointerId !== activePointer) return;
-    const point = pointerPoint(event);
-    // Sample fast drags, too, so a skipped browser event cannot jump a wall.
-    const steps = Math.max(1, Math.ceil(Math.hypot(point[0] - lastPoint[0], point[1] - lastPoint[1]) / 0.15));
-    let changed = false;
-    for (let i = 1; i <= steps; i++) {
-      changed = trace.advance([lastPoint[0] + (point[0] - lastPoint[0]) * i / steps,
-        lastPoint[1] + (point[1] - lastPoint[1]) * i / steps]) || changed;
-    }
-    if (!changed) changed = trace.jump(point);
-    lastPoint = point;
-    if (changed) {
-      status.textContent = trace.complete ? 'Maze complete! Well done!' : 'Tap ahead or keep dragging along the passage.';
-      render();
-    }
-  });
-  function endDrag(event) {
-    if (event.pointerId !== activePointer) return;
-    if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
-    activePointer = null;
-    lastPoint = null;
-  }
-  for (const name of ['pointerup', 'pointercancel', 'lostpointercapture']) canvas.addEventListener(name, endDrag);
-  document.getElementById('controls').addEventListener('submit', event => { event.preventDefault(); generate(); });
-  document.getElementById('restart').addEventListener('click', restart);
-  document.getElementById('solve').addEventListener('click', () => {
-    solution = Maze.solveMaze(maze);
-    status.textContent = 'Solution shown. Start over to try it yourself.';
-    render();
-  });
-  // Keep the classic 40×25 default on computers; fit smaller touch screens.
-  // Run only on load: resizing or zooming must not replace the user's maze.
-  function setInitialDimensions() {
-    if (!matchMedia('(max-width: 640px), (pointer: coarse) and (max-width: 1024px)').matches) return;
-    const frame = document.querySelector('.viewport');
-    const frameStyle = getComputedStyle(frame);
-    const bodyStyle = getComputedStyle(document.body);
-    const hint = document.querySelector('.hint');
-    const hintStyle = getComputedStyle(hint);
-    const horizontalFrame = parseFloat(frameStyle.paddingLeft) + parseFloat(frameStyle.paddingRight)
-      + parseFloat(frameStyle.borderLeftWidth) + parseFloat(frameStyle.borderRightWidth);
-    const verticalFrame = parseFloat(frameStyle.paddingTop) + parseFloat(frameStyle.paddingBottom)
-      + parseFloat(frameStyle.borderTopWidth) + parseFloat(frameStyle.borderBottomWidth);
-    const availableWidth = document.documentElement.clientWidth
-      - parseFloat(bodyStyle.marginLeft) - parseFloat(bodyStyle.marginRight) - horizontalFrame - 2 * margin;
-    const availableHeight = document.documentElement.clientHeight - frame.getBoundingClientRect().top
-      - parseFloat(bodyStyle.marginBottom) - verticalFrame - 2 * margin
-      - hint.getBoundingClientRect().height - parseFloat(hintStyle.marginTop) - parseFloat(hintStyle.marginBottom);
-    document.getElementById('width').value = Math.max(1, Math.floor(availableWidth / size));
-    document.getElementById('height').value = Math.max(1, Math.floor(availableHeight / size));
-  }
-  setInitialDimensions();
-  generate();
-</script>
+<script src="maze-state.js"></script>
+<script src="app.js"></script>
 </body>
 </html>

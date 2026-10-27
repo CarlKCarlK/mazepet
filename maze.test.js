@@ -1,6 +1,46 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { generateMaze, solveMaze, solutionPoints, roomPoint, createTrace, toUnicode } = require('./maze.js');
+const { generateMaze, createOriginalMaze, solveMaze, solutionPoints, roomPoint, createTrace, toUnicode } = require('./maze.js');
+
+test('original PETSCII movement follows original walls and handles unreachable exits', () => {
+  const blocked = createOriginalMaze({ width: 1, height: 2, originalTiles: ['/', '/'] });
+  assert.equal(blocked.removed.size, 0);
+  assert.deepEqual(solveMaze(blocked), []);
+  const blockedTrace = createTrace(blocked);
+  assert.equal(blockedTrace.jump(roomPoint(blocked, 1)), false);
+  assert.equal(blockedTrace.advance(roomPoint(blocked, 1)), false);
+  assert.deepEqual(blockedTrace.path, [blocked.entrance]);
+
+  const source = { width: 1, height: 2, originalTiles: ['\\', '\\'] };
+  const original = createOriginalMaze(source);
+  assert.notStrictEqual(original.tiles, source.originalTiles);
+  assert.deepEqual(original.passages, [[1, 2]]);
+  assert.deepEqual(solveMaze(original), [1, 2]);
+  const trace = createTrace(original);
+  assert(trace.jump(roomPoint(original, original.exit)));
+  assert(trace.complete);
+  assert(trace.jump(roomPoint(original, original.entrance)));
+  assert.equal(trace.complete, false);
+  assert.deepEqual(trace.path, [original.entrance]);
+});
+
+test('generation preserves the exact random diagonals before any repairs', () => {
+  let seed = 123;
+  const draws = [];
+  const random = () => {
+    const value = ((seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 2 ** 32);
+    draws.push(value);
+    return value;
+  };
+  const maze = generateMaze(25, 20, random);
+  const original = draws.slice(0, 500).map(value => value < 0.5 ? '/' : '\\');
+  assert.deepEqual(maze.originalTiles, original);
+  assert.notStrictEqual(maze.originalTiles, maze.tiles);
+  assert(maze.removed.size > 0, 'the fixed maze has removed diagonals');
+  assert(maze.tiles.some((tile, i) => tile !== original[i]), 'repairs flip some diagonals');
+  maze.tiles[0] = maze.tiles[0] === '/' ? '\\' : '/';
+  assert.deepEqual(maze.originalTiles, original);
+});
 
 test('short taps ahead follow corridor bends and taps behind erase the route', () => {
   let seed = 123;

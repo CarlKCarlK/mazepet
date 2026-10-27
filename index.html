@@ -131,9 +131,10 @@
     solution = Maze.solveMaze(maze);
     render();
   });
-  // Pick the initial proportions from the usable viewport, not a device name.
+  // Keep the classic 40×25 default on computers; fit smaller touch screens.
   // Run only on load: resizing or zooming must not replace the user's maze.
   function setInitialDimensions() {
+    if (!matchMedia('(max-width: 640px), (pointer: coarse) and (max-width: 1024px)').matches) return;
     const frame = document.querySelector('.viewport');
     const frameStyle = getComputedStyle(frame);
     const bodyStyle = getComputedStyle(document.body);

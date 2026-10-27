@@ -2,6 +2,8 @@
 
 [Play mazepet in your browser](https://carlkcarlk.github.io/mazepet/).
 
+[![A purple maze made from diagonal walls. Click to play mazepet.](assets/maze-example.png)](https://carlkcarlk.github.io/mazepet/)
+
 Inspired by the Commodore 64's [10 PRINT](https://10print.org/), which draws a maze-like picture from random PETSCII diagonals:
 
 ```basic
@@ -24,7 +26,7 @@ The solver uses breadth-first search through the triangular rooms. Its highlight
 
 ## Run locally
 
-Open [index.html](index.html) in your browser. The starting maze fits the available screen, giving portrait phones a taller maze and wide screens a wider one. Set the width and height, click **Generate**, and use **Solve** to reveal the route. Enter at the upper left and exit at the lower right. Zoom out or use browser scrolling for large mazes. No dependencies, server, or internet connection needed.
+Open [index.html](index.html) in your browser. Computers start with a 40×25 maze; phones start with dimensions fitted to their screen. Set the width and height, click **Generate**, and use **Solve** to reveal the route. Enter at the upper left and exit at the lower right. Zoom out or use browser scrolling for large mazes. No dependencies, server, or internet connection needed.
 
 For a Unicode terminal version and the automated checks, use Node.js:
 

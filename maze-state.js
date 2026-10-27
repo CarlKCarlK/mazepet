@@ -3,8 +3,6 @@
 (function (root) {
   'use strict';
   /** @typedef {{width: number, height: number, mode: 'fixed' | 'petscii', seed: string}} State */
-  const MAX_DIMENSION = 200;
-  const MAX_CELLS = 10000;
 
   /** @param {string} seed */
   function seededRandom(seed) {
@@ -25,14 +23,14 @@
 
   /** @param {number} width @param {number} height */
   function validDimensions(width, height) {
-    return [width, height].every(n => Number.isInteger(n) && n >= 1 && n <= MAX_DIMENSION)
-      && width * height <= MAX_CELLS;
+    return [width, height].every(n => Number.isSafeInteger(n) && n >= 1)
+      && Number.isSafeInteger(2 * width * height);
   }
 
   /** @param {string | null} text @param {number} fallback */
   function dimension(text, fallback) {
-    const n = text !== null && /^[1-9]\d{0,2}$/.test(text) ? Number(text) : NaN;
-    return n >= 1 && n <= MAX_DIMENSION ? n : fallback;
+    const n = text !== null && /^[1-9]\d*$/.test(text) ? Number(text) : NaN;
+    return Number.isSafeInteger(n) && n >= 1 ? n : fallback;
   }
 
   /** @param {string} search @param {{width: number, height: number}} defaults @param {() => string} [makeSeed] @returns {State} */
@@ -62,7 +60,7 @@
     return url.href;
   }
 
-  const api = { seededRandom, newSeed, validDimensions, parse, toURL, MAX_DIMENSION, MAX_CELLS };
+  const api = { seededRandom, newSeed, validDimensions, parse, toURL };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else Object.assign(root, { MazeState: api });
 })(globalThis);

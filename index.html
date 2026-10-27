@@ -45,7 +45,8 @@
   .viewport.completed { border-color: #9fffc3; box-shadow: 0 0 18px #9fffc355; }
   .completion { position: absolute; inset: 0; display: grid; place-items: center; padding: 12px; pointer-events: none; }
   .completion[hidden] { display: none; }
-  .completion-card { max-width: 100%; padding: 16px 20px; border: 2px solid #9fffc3; border-radius: 12px; background: #17352a; color: #d6ffe5; text-align: center; box-shadow: 0 6px 28px #0009; animation: celebrate 550ms ease-out; }
+  .completion-card { pointer-events: auto; max-width: 100%; padding: 16px 20px; border: 2px solid #9fffc3; border-radius: 12px; background: #17352a; color: #d6ffe5; text-align: center; box-shadow: 0 6px 28px #0009; animation: celebrate 550ms ease-out; }
+  .completion-card:hover { background: #1c4434; }
   .completion-card strong { display: block; font-size: clamp(18px, 5vw, 30px); }
   .completion-card span { display: block; margin-top: 4px; font-size: 14px; }
   @keyframes celebrate {
@@ -73,8 +74,8 @@
   <h1>mazepet</h1>
   <form id="controls">
     <div class="size-fields">
-      <label>Width <input id="width" type="number" min="1" max="200" value="25" required></label>
-      <label>Height <input id="height" type="number" min="1" max="200" value="20" required></label>
+      <label>Width <input id="width" type="number" min="1" value="25" required></label>
+      <label>Height <input id="height" type="number" min="1" value="20" required></label>
     </div>
     <div class="actions">
       <button type="submit">Generate</button>
@@ -90,12 +91,12 @@
   <p>Inspired by the Commodore 64's <a href="https://10print.org/">10 PRINT</a>, which draws a maze-like picture from random PETSCII diagonals:</p>
   <pre><code class="language-basic">10 PRINT CHR$(205.5+RND(1)); : GOTO 10</code></pre>
   <p>mazepet repairs that random picture into a solvable maze while trying to preserve its original diagonals.</p>
-  <p>Version <span id="version">development</span>. Share a link to play the same maze and mode. Each dimension can be up to 200 cells, with at most 10,000 cells total.</p>
+  <p>Version <span id="version">development</span>. Share the address-bar URL to play the same maze and mode.</p>
 </details>
 <div class="viewport" id="maze-frame">
   <canvas id="maze" role="img" aria-label="Interactive diagonal maze. Tap ahead or drag from the upper-left entrance to the lower-right exit." aria-describedby="instructions"></canvas>
   <div class="completion" id="completion" role="status" aria-live="polite" hidden>
-    <div class="completion-card"><strong>Maze complete!</strong><span>You reached the exit.</span></div>
+    <button class="completion-card" id="dismiss-completion" type="button" aria-label="Maze complete! Dismiss announcement"><strong>Maze complete!</strong><span>You reached the exit.</span></button>
   </div>
 </div>
 <p class="hint" id="instructions">Tap or click a little ahead of the line, or drag, to reach the lower-right exit.

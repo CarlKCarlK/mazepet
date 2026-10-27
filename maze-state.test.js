@@ -26,13 +26,14 @@ test('URL round trips preserve the layout, mode, zero seed, unrelated parameters
   assert.deepEqual(State.parse(url.search, defaults, seed), state);
 });
 
-test('missing and malformed URL values use bounded defaults', () => {
+test('missing and malformed URL values use defaults without imposing size caps', () => {
   assert.deepEqual(State.parse('', defaults, seed), { ...defaults, mode: 'fixed', seed: seed() });
-  for (const value of ['-1', '0', '1.5', 'Infinity', '1e2', '201', '99999999999999', 'abc']) {
+  for (const value of ['-1', '0', '1.5', 'Infinity', '1e2', '9007199254740992', 'abc']) {
     assert.equal(State.parse(`?w=${value}&h=20`, defaults, seed).width, 25);
   }
-  assert.deepEqual(State.parse('?w=200&h=200&mode=unknown&seed=oops', defaults, seed), { ...defaults, mode: 'fixed', seed: seed() });
+  assert.deepEqual(State.parse('?w=250&h=50&mode=unknown&seed=oops', defaults, seed), { width: 250, height: 50, mode: 'fixed', seed: seed() });
   assert.deepEqual(State.parse('?w=200&h=50&mode=petscii&seed=ABCDEF01', defaults, seed), { width: 200, height: 50, mode: 'petscii', seed: 'abcdef01' });
   assert.equal(State.parse('?w=40&h=25', { width: 12, height: 15 }, seed).width, 40);
-  assert.equal(State.validDimensions(200, 51), false);
+  assert.equal(State.validDimensions(1000, 1000), true);
+  assert.equal(State.validDimensions(Number.MAX_SAFE_INTEGER, 2), false);
 });

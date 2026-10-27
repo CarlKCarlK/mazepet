@@ -33,6 +33,18 @@ let activePointer = null;
 /** @type {number[] | null} */
 let lastPoint = null;
 const mazeStatus = element('status');
+/** @type {WeakMap<Trace, boolean>} */
+const completionStates = new WeakMap();
+/** @type {Trace | null} */
+let completionTrace = null;
+/** @type {ReturnType<typeof setTimeout> | null} */
+let completionTimer = null;
+function dismissCompletion() {
+  if (completionTimer !== null) clearTimeout(completionTimer);
+  completionTimer = null;
+  element('completion').hidden = true;
+}
+element('dismiss-completion').addEventListener('click', dismissCompletion);
 function restart() {
   if (activePointer !== null && canvas.hasPointerCapture(activePointer)) canvas.releasePointerCapture(activePointer);
   activePointer = null;
@@ -65,10 +77,17 @@ function activateView() {
 }
 function render() {
   const completed = trace.complete && solution.length === 0;
-  element('completion').hidden = !completed;
+  const previouslyCompleted = completionStates.get(trace) || false;
+  completionStates.set(trace, completed);
+  if (completionTrace !== trace || !completed) dismissCompletion();
+  if (completed && !previouslyCompleted) {
+    completionTrace = trace;
+    element('completion').hidden = false;
+    completionTimer = setTimeout(dismissCompletion, 1000);
+  }
   element('maze-frame').classList.toggle('completed', completed);
   const toggle = element('toggle-original');
-  toggle.textContent = showOriginal ? 'Fix' : 'Show original';
+  toggle.textContent = showOriginal ? 'Show fixed' : 'Show original';
   toggle.setAttribute('aria-pressed', String(showOriginal));
   element('layout-note').textContent = showOriginal
     ? 'Original PETSCII: the exit may be unreachable. ' : '';
@@ -184,7 +203,7 @@ element('controls').addEventListener('submit', event => {
   const width = Number(input('width').value);
   const height = Number(input('height').value);
   if (!MazeState.validDimensions(width, height)) {
-    mazeStatus.textContent = 'Use dimensions from 1 to 200, with at most 10,000 cells total.';
+    mazeStatus.textContent = 'Use positive whole-number dimensions.';
     return;
   }
   generate({ width, height, mode: showOriginal ? 'petscii' : 'fixed', seed: MazeState.newSeed() });
@@ -230,8 +249,8 @@ function setInitialDimensions() {
 // Screen fitting is only a default. Shared dimensions take precedence.
 setInitialDimensions();
 const defaults = {
-  width: Math.min(100, Math.max(1, Number(input('width').value))),
-  height: Math.min(100, Math.max(1, Number(input('height').value))),
+  width: Math.max(1, Number(input('width').value)),
+  height: Math.max(1, Number(input('height').value)),
 };
 generate(MazeState.parse(location.search, defaults));
 updateURL('replaceState');

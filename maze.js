@@ -217,8 +217,78 @@
     return path.reverse();
   }
 
+  function roomPoint(maze, room) {
+    const i = Math.floor(room / 2), bottom = room % 2;
+    return [i % maze.width + (maze.tiles[i] === '/' ? (bottom ? 2 / 3 : 1 / 3)
+      : (bottom ? 1 / 3 : 2 / 3)), Math.floor(i / maze.width) + (bottom ? 2 / 3 : 1 / 3)];
+  }
+
+  // Interpret only nearby, connected moves. No solution knowledge is used.
+  function createTrace(maze) {
+    const neighbors = Array.from({ length: 2 * maze.width * maze.height }, () => []);
+    for (const [a, b] of maze.passages) { neighbors[a].push(b); neighbors[b].push(a); }
+    const centers = neighbors.map((_, room) => roomPoint(maze, room));
+    const path = [maze.entrance];
+    function visit(room) {
+      const previous = path.indexOf(room);
+      if (previous < 0) path.push(room);
+      else path.length = previous + 1;
+    }
+    return {
+      path,
+      get complete() { return path[path.length - 1] === maze.exit; },
+      jump(point) {
+        const [px, py] = point, x = Math.floor(px), y = Math.floor(py);
+        if (x < 0 || y < 0 || x >= maze.width || y >= maze.height) return false;
+        const tile = y * maze.width + x, dx = px - x, dy = py - y;
+        const side = maze.tiles[tile] === '/' ? dx + dy - 1 : dy - dx;
+        // A tap on a wall doesn't clearly name either passage beside it.
+        if (!maze.removed.has(tile) && Math.abs(side) / Math.SQRT2 < 0.08) return false;
+        const target = 2 * tile + Number(side > 0);
+        const current = path[path.length - 1];
+        if (target === current) return false;
+        let route = null, routes = 0;
+        // Search only a few tiles around the tip, including corridor bends.
+        // Accept exactly one local route, never choose a way around a loop.
+        function search(rooms, length) {
+          const room = rooms[rooms.length - 1];
+          if (room === target) { route = rooms; routes++; return; }
+          if (rooms.length > 32 || routes > 1) return;
+          for (const next of neighbors[room]) {
+            if (rooms.includes(next)) continue;
+            const distance = length + Math.hypot(centers[next][0] - centers[room][0], centers[next][1] - centers[room][1]);
+            if (distance <= 16) search([...rooms, next], distance);
+            if (routes > 1) return;
+          }
+        }
+        search([current], 0);
+        if (routes !== 1) return false;
+        for (const room of route.slice(1)) visit(room);
+        return true;
+      },
+      advance(point) {
+        let changed = false;
+        const distance = room => Math.hypot(centers[room][0] - point[0], centers[room][1] - point[1]);
+        // Distance must decrease at every step, preventing oscillation. The
+        // radius prevents a far-away pointer from pulling us around the maze.
+        for (let steps = 0; steps < 8; steps++) {
+          const current = path[path.length - 1];
+          const candidates = neighbors[current].map(room => ({ room, distance: distance(room) }))
+            .sort((a, b) => a.distance - b.distance);
+          const best = candidates[0];
+          if (!best || best.distance > 1.1 || best.distance + 0.08 >= distance(current)) break;
+          // At a fork, wait until one branch is clearly nearer the gesture.
+          if (candidates.length > 1 && candidates[1].distance - best.distance < 0.18) break;
+          visit(best.room);
+          changed = true;
+        }
+        return changed;
+      },
+    };
+  }
+
   // Keep the route centered; remove only short, wall-free grid-aligned jogs.
-  function solutionPoints(maze, path = solveMaze(maze)) {
+  function solutionPoints(maze, path = solveMaze(maze), complete = true) {
     if (!path.length) return [];
     const points = [[0, 0.5]];
     for (let step = 1; step < path.length; step++) {
@@ -229,7 +299,7 @@
       else if (y === by) points.push([Math.max(x, bx), y + 0.5]);
       else points.push([x + 0.5, Math.max(y, by)]);
     }
-    points.push([maze.width, maze.height - 0.5]);
+    points.push(complete ? [maze.width, maze.height - 0.5] : roomPoint(maze, path[path.length - 1]));
     const cross = (a, b, c) => (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
     function clear(a, b) {
       // Include touching a wall tip as a collision, not just crossing a wall.
@@ -282,7 +352,7 @@
   }
 
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { generateMaze, solveMaze, solutionPoints, toUnicode };
+    module.exports = { generateMaze, solveMaze, solutionPoints, roomPoint, createTrace, toUnicode };
     if (require.main === module) {
       try {
         const maze = generateMaze(Number(process.argv[2] ?? 30), Number(process.argv[3] ?? 15));
@@ -292,5 +362,5 @@
         process.exitCode = 1;
       }
     }
-  } else root.Maze = { generateMaze, solveMaze, solutionPoints, toUnicode };
+  } else root.Maze = { generateMaze, solveMaze, solutionPoints, roomPoint, createTrace, toUnicode };
 })(typeof globalThis === 'undefined' ? this : globalThis);

@@ -40,7 +40,8 @@
   .source { font-size: 13px; }
   a { color: #c6b3ff; }
   .viewport { width: max-content; padding: 10px; background: #211d40; border: 1px solid #484064; border-radius: 8px; }
-  canvas { display: block; }
+  canvas { display: block; touch-action: none; cursor: crosshair; }
+  #status { color: #ffd479; }
   p { font-size: 13px; color: #b7adce; line-height: 1.5; }
   .hint { margin: 8px 0; }
   details { max-width: 72ch; margin-bottom: 10px; }
@@ -64,6 +65,7 @@
     <div class="actions">
       <button type="submit">Generate</button>
       <button id="solve" type="button">Solve</button>
+      <button id="restart" type="button">Start over</button>
     </div>
   </form>
   <a class="source" href="https://github.com/CarlKCarlK/mazepet">GitHub</a>
@@ -74,8 +76,12 @@
   <pre><code class="language-basic">10 PRINT CHR$(205.5+RND(1)); : GOTO 10</code></pre>
   <p>mazepet repairs that random picture into a solvable maze while trying to preserve its original diagonals.</p>
 </details>
-<div class="viewport"><canvas id="maze" role="img" aria-label="Diagonal maze with an entrance at the upper left and exit at the lower right"></canvas></div>
-<p class="hint">Enter on the left at the top; exit on the right at the bottom.</p>
+<div class="viewport"><canvas id="maze" role="img" aria-label="Interactive diagonal maze. Tap ahead or drag from the upper-left entrance to the lower-right exit." aria-describedby="instructions"></canvas></div>
+<p class="hint" id="instructions">Tap or click a little ahead of the line, or drag, to reach the lower-right exit.
+  You don’t need to grab the dot: short jumps follow a clear passage, including bends.
+  Steer clearly at forks. Tap or drag back along your route to erase steps.
+  Scroll outside the maze to move the page.<br>
+  <span id="status" role="status" aria-live="polite">Tap a little ahead of the upper-left entrance.</span></p>
 <script src="maze.js"></script>
 <script>
   'use strict';
@@ -83,10 +89,22 @@
   const size = 20, margin = 4;
   let maze;
   let solution = [];
+  let trace;
+  let activePointer = null;
+  let lastPoint = null;
+  const status = document.getElementById('status');
+  function restart() {
+    if (activePointer !== null && canvas.hasPointerCapture(activePointer)) canvas.releasePointerCapture(activePointer);
+    activePointer = null;
+    lastPoint = null;
+    solution = [];
+    trace = Maze.createTrace(maze);
+    status.textContent = 'Tap a little ahead of the upper-left entrance.';
+    render();
+  }
   function generate() {
     maze = Maze.generateMaze(Number(document.getElementById('width').value), Number(document.getElementById('height').value));
-    solution = [];
-    render();
+    restart();
   }
   function render() {
     const width = maze.width * size + 2 * margin;
@@ -121,19 +139,74 @@
       wall(maze.width, 0, maze.width, maze.height - 1);
     }
     ctx.stroke();
-    if (solution.length) {
+    const path = solution.length ? solution : trace.path;
+    if (path.length) {
       ctx.strokeStyle = '#ffd479';
       ctx.lineWidth = 2.5;
       ctx.beginPath();
-      const points = Maze.solutionPoints(maze, solution);
+      const points = Maze.solutionPoints(maze, path, solution.length > 0 || trace.complete);
       ctx.moveTo(points[0][0] * size, points[0][1] * size);
       for (const [x, y] of points.slice(1)) ctx.lineTo(x * size, y * size);
       ctx.stroke();
     }
+    if (!solution.length) {
+      const [x, y] = Maze.roomPoint(maze, trace.path[trace.path.length - 1]);
+      ctx.fillStyle = trace.complete ? '#9fffc3' : '#ffd479';
+      ctx.beginPath();
+      ctx.arc(x * size, y * size, 4, 0, 2 * Math.PI);
+      ctx.fill();
+    }
   }
+  function pointerPoint(event) {
+    const rect = canvas.getBoundingClientRect();
+    return [(event.clientX - rect.left - margin) / size, (event.clientY - rect.top - margin) / size];
+  }
+  canvas.addEventListener('pointerdown', event => {
+    if (activePointer !== null || !event.isPrimary || event.button !== 0) return;
+    const point = pointerPoint(event);
+    const tip = Maze.roomPoint(maze, trace.path[trace.path.length - 1]);
+    const jumped = trace.jump(point);
+    if (!jumped && Math.hypot(point[0] - tip[0], point[1] - tip[1]) > 1.2) {
+      status.textContent = 'Tap a little closer, along a clear passage.';
+      return;
+    }
+    event.preventDefault();
+    activePointer = event.pointerId;
+    lastPoint = point;
+    canvas.setPointerCapture(event.pointerId);
+    solution = [];
+    status.textContent = trace.complete ? 'Maze complete! Well done!' : 'Tap ahead or keep dragging along the passage.';
+    render();
+  });
+  canvas.addEventListener('pointermove', event => {
+    if (event.pointerId !== activePointer) return;
+    const point = pointerPoint(event);
+    // Sample fast drags, too, so a skipped browser event cannot jump a wall.
+    const steps = Math.max(1, Math.ceil(Math.hypot(point[0] - lastPoint[0], point[1] - lastPoint[1]) / 0.15));
+    let changed = false;
+    for (let i = 1; i <= steps; i++) {
+      changed = trace.advance([lastPoint[0] + (point[0] - lastPoint[0]) * i / steps,
+        lastPoint[1] + (point[1] - lastPoint[1]) * i / steps]) || changed;
+    }
+    if (!changed) changed = trace.jump(point);
+    lastPoint = point;
+    if (changed) {
+      status.textContent = trace.complete ? 'Maze complete! Well done!' : 'Tap ahead or keep dragging along the passage.';
+      render();
+    }
+  });
+  function endDrag(event) {
+    if (event.pointerId !== activePointer) return;
+    if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
+    activePointer = null;
+    lastPoint = null;
+  }
+  for (const name of ['pointerup', 'pointercancel', 'lostpointercapture']) canvas.addEventListener(name, endDrag);
   document.getElementById('controls').addEventListener('submit', event => { event.preventDefault(); generate(); });
+  document.getElementById('restart').addEventListener('click', restart);
   document.getElementById('solve').addEventListener('click', () => {
     solution = Maze.solveMaze(maze);
+    status.textContent = 'Solution shown. Start over to try it yourself.';
     render();
   });
   // Keep the classic 40×25 default on computers; fit smaller touch screens.

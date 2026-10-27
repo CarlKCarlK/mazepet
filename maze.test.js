@@ -1,6 +1,76 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { generateMaze, solveMaze, solutionPoints, toUnicode } = require('./maze.js');
+const { generateMaze, solveMaze, solutionPoints, roomPoint, createTrace, toUnicode } = require('./maze.js');
+
+test('short taps ahead follow corridor bends and taps behind erase the route', () => {
+  let seed = 123;
+  const random = () => ((seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 2 ** 32);
+  const maze = generateMaze(10, 10, random), trace = createTrace(maze), path = solveMaze(maze);
+  const target = path[5];
+  assert(trace.jump(roomPoint(maze, target)));
+  assert.deepEqual(trace.path, path.slice(0, 6));
+  assert(trace.jump(roomPoint(maze, maze.entrance)));
+  assert.deepEqual(trace.path, [maze.entrance]);
+  assert.equal(trace.jump([100, 100]), false);
+  assert.equal(trace.jump(roomPoint(maze, path.at(-1))), false, 'do not solve the maze with a distant tap');
+});
+
+test('jumps reject walls, disconnected rooms, and two possible local routes', () => {
+  const blocked = { width: 1, height: 1, tiles: ['/'], removed: new Set(),
+    entrance: 0, exit: 1, passages: [] };
+  const trace = createTrace(blocked);
+  assert.equal(trace.jump([0.5, 0.5]), false, 'tap on a wall is ambiguous');
+  assert.equal(trace.jump(roomPoint(blocked, 1)), false, 'cannot jump through a wall');
+  assert.deepEqual(trace.path, [0]);
+  const loop = { width: 2, height: 2, tiles: ['/', '/', '/', '/'], removed: new Set([0, 1, 2, 3]),
+    entrance: 1, exit: 7, passages: [[0, 1], [2, 3], [4, 5], [6, 7], [1, 2], [5, 6], [1, 4], [3, 6]] };
+  const loopTrace = createTrace(loop);
+  assert.equal(loopTrace.jump(roomPoint(loop, 3)), false, 'do not choose either way around a loop');
+  assert.deepEqual(loopTrace.path, [1]);
+});
+
+test('tracing follows passages to completion and erases steps when retraced', () => {
+  let seed = 55;
+  const random = () => ((seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 2 ** 32);
+  for (const [w, h] of [[1, 1], [1, 10], [10, 1], [10, 10]]) {
+    const maze = generateMaze(w, h, random), trace = createTrace(maze);
+    const path = solveMaze(maze);
+    assert.equal(trace.complete, false);
+    for (const room of path.slice(1)) trace.advance(roomPoint(maze, room));
+    assert.deepEqual(trace.path, path);
+    assert.equal(trace.complete, true);
+    for (const room of path.slice(0, -1).reverse()) trace.advance(roomPoint(maze, room));
+    assert.deepEqual(trace.path, [maze.entrance]);
+    assert.equal(trace.complete, false);
+    const points = solutionPoints(maze, trace.path, false);
+    assert.deepEqual(points.at(-1), roomPoint(maze, maze.entrance));
+  }
+});
+
+test('tracing pauses at ambiguous forks and accepts a chosen dead end', () => {
+  // Room 1 opens left to 2 and right to 4; room 0 is behind it.
+  const maze = { width: 3, height: 1, tiles: ['/', '/', '\\'], removed: new Set([0]),
+    entrance: 1, exit: 5, passages: [[1, 0], [1, 2], [1, 4]] };
+  const trace = createTrace(maze);
+  const a = roomPoint(maze, 2), b = roomPoint(maze, 4);
+  trace.advance([(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]);
+  assert.deepEqual(trace.path, [1], 'do not choose between equally near branches');
+  trace.advance(a);
+  assert.deepEqual(trace.path, [1, 2], 'allow a dead end instead of picking a solution');
+  trace.advance(roomPoint(maze, 1));
+  assert.deepEqual(trace.path, [1]);
+  trace.advance([100, 100]);
+  assert.deepEqual(trace.path, [1], 'distant gestures do not pull the route forward');
+});
+
+test('tracing never crosses a diagonal to an unconnected nearby room', () => {
+  const maze = { width: 1, height: 1, tiles: ['/'], removed: new Set(),
+    entrance: 0, exit: 1, passages: [] };
+  const trace = createTrace(maze);
+  trace.advance(roomPoint(maze, 1));
+  assert.deepEqual(trace.path, [0]);
+  assert.equal(trace.complete, false);
+});
 
 test('diagonal-only repairs connect all rooms, including narrow and single-tile mazes', () => {
   let state = 12345;

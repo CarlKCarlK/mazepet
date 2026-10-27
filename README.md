@@ -26,7 +26,11 @@ The solver uses breadth-first search through the triangular rooms. Its highlight
 
 ## Run locally
 
-Open [index.html](index.html) in your browser. Computers start with a 40×25 maze; phones start with dimensions fitted to their screen. Set the width and height, click **Generate**, and use **Solve** to reveal the route. Enter at the upper left and exit at the lower right. Zoom out or use browser scrolling for large mazes. No dependencies, server, or internet connection needed.
+Open [index.html](index.html) in your browser. Computers start with a 40×25 maze; phones start with dimensions fitted to their screen. Set the width and height and click **Generate** for a new maze. No dependencies, server, or internet connection needed.
+
+Tap or click a little ahead of the line, starting near the upper-left entrance, or drag with a mouse or finger. You don't need to grab the dot. Short jumps follow a single clear passage, including around bends, for up to about sixteen tiles of travel. Distant taps, taps on walls, and jumps with two possible nearby routes leave the line in place. At forks, tap clearly into your chosen branch. Wrong turns are allowed—the interaction never consults the solution.
+
+Tap or drag backward along your route to erase steps. Lift your finger or release the mouse to pause, then tap ahead again to resume. Reach the lower-right exit to see **Maze complete!** Use **Start over** to clear your route on the same maze, or **Solve** to reveal the answer. Revealing the answer does not count as completing the maze. Scroll outside the maze or zoom out to navigate large mazes; dragging inside the maze traces your route.
 
 For a Unicode terminal version and the automated checks, use Node.js:
 

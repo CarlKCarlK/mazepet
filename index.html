@@ -5,38 +5,49 @@
 <title>mazepet</title>
 <style>
   :root { color-scheme: dark; font-family: system-ui, sans-serif; background: #17152b; color: #e5dffd; }
-  body { margin: 36px 20px; }
-  h1 { font-size: 24px; margin-bottom: 20px; font-weight: 600; }
-  form { display: flex; flex-wrap: wrap; align-items: end; gap: 14px; margin-bottom: 24px; }
-  label { display: grid; gap: 6px; font-size: 14px; }
-  input, button { font: inherit; border-radius: 6px; padding: 9px 12px; }
-  input { width: 76px; border: 1px solid #625b83; background: #242039; color: inherit; }
-  button { background: #c6b3ff; border: 1px solid #c6b3ff; color: #211b35; cursor: pointer; font-weight: 600; }
+  body { margin: 16px; }
+  header { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; margin-bottom: 12px; }
+  h1 { font-size: 22px; margin: 0; font-weight: 600; }
+  form { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 0; }
+  label { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+  input, button { font: inherit; border-radius: 5px; padding: 6px 9px; }
+  input { width: 56px; border: 1px solid #625b83; background: #242039; color: inherit; }
+  button { background: #c6b3ff; border: 1px solid #c6b3ff; color: #211b35; cursor: pointer; font-size: 14px; font-weight: 600; }
   button:hover { background: #ddd0ff; }
-  button:focus-visible, input:focus-visible { outline: 2px solid white; outline-offset: 3px; }
-  .viewport { width: max-content; padding: 16px; background: #211d40; border: 1px solid #484064; border-radius: 8px; }
-  canvas { display: block; }
-  p { font-size: 13px; color: #b7adce; }
+  button:focus-visible, input:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px solid white; outline-offset: 3px; }
+  .source { font-size: 13px; }
   a { color: #c6b3ff; }
-  .intro { max-width: 72ch; margin-bottom: 24px; }
-  .intro p { font-size: 15px; line-height: 1.5; }
-  .intro pre { white-space: pre-wrap; padding: 12px 16px; background: #211d40; border-radius: 6px; }
+  .viewport { width: max-content; padding: 10px; background: #211d40; border: 1px solid #484064; border-radius: 8px; }
+  canvas { display: block; }
+  p { font-size: 13px; color: #b7adce; line-height: 1.5; }
+  .hint { margin: 8px 0; }
+  details { max-width: 72ch; }
+  summary { width: fit-content; cursor: pointer; font-size: 13px; color: #c6b3ff; }
+  details pre { white-space: pre-wrap; padding: 10px 12px; background: #211d40; border-radius: 5px; }
+  @media (max-width: 640px) {
+    header { gap: 10px; }
+    .source { margin-left: auto; }
+    form { order: 1; flex-basis: 100%; }
+  }
 </style>
-<h1>mazepet</h1>
-<div class="intro">
+<header>
+  <h1>mazepet</h1>
+  <form id="controls">
+    <label>Width <input id="width" type="number" min="1" value="40" required></label>
+    <label>Height <input id="height" type="number" min="1" value="25" required></label>
+    <button type="submit">Generate</button>
+    <button id="solve" type="button">Solve</button>
+  </form>
+  <a class="source" href="https://github.com/CarlKCarlK/mazepet">GitHub</a>
+</header>
+<div class="viewport"><canvas id="maze" role="img" aria-label="Diagonal maze with an entrance at the upper left and exit at the lower right"></canvas></div>
+<p class="hint">Enter on the left at the top; exit on the right at the bottom.</p>
+<details>
+  <summary>About mazepet &amp; 10 PRINT</summary>
   <p>Inspired by the Commodore 64's <a href="https://10print.org/">10 PRINT</a>, which draws a maze-like picture from random PETSCII diagonals:</p>
   <pre><code class="language-basic">10 PRINT CHR$(205.5+RND(1)); : GOTO 10</code></pre>
   <p>mazepet repairs that random picture into a solvable maze while trying to preserve its original diagonals.</p>
-  <p><a href="https://github.com/CarlKCarlK/mazepet">Source on GitHub</a></p>
-</div>
-<form id="controls">
-  <label>Width <input id="width" type="number" min="1" value="40" required></label>
-  <label>Height <input id="height" type="number" min="1" value="25" required></label>
-  <button type="submit">Generate</button>
-  <button id="solve" type="button">Solve</button>
-</form>
-<div class="viewport"><canvas id="maze" role="img" aria-label="Diagonal maze with an entrance at the upper left and exit at the lower right"></canvas></div>
-<p>Enter on the left at the top; exit on the right at the bottom. All passages are connected.</p>
+</details>
 <script src="maze.js"></script>
 <script>
   'use strict';

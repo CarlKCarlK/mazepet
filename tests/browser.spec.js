@@ -116,3 +116,86 @@ test('large dimensions work in controls and shared URLs without the former caps'
   await expect(page.locator('#width')).not.toHaveAttribute('max');
   await expect(page.locator('#height')).not.toHaveAttribute('max');
 });
+
+for (const density of [1, 2]) {
+  test.describe(`large maze rendering at ${density}x density`, () => {
+    test.use({ deviceScaleFactor: density });
+
+    for (const [width, height] of [[1000, 20], [20, 1000]]) {
+      test(`${width} x ${height} stays sharp through tile edges and the exit`, async ({ page }) => {
+        const errors = [];
+        page.on('pageerror', error => errors.push(error.message));
+        await page.goto(`/${version}/?w=${width}&h=${height}&mode=fixed&seed=8ac31f02`);
+        const tiles = await page.locator('#maze canvas').evaluateAll(nodes => nodes.map(tile => ({
+          width: tile.width, height: tile.height,
+          left: parseFloat(tile.style.left), top: parseFloat(tile.style.top),
+          cssWidth: parseFloat(tile.style.width), cssHeight: parseFloat(tile.style.height),
+        })));
+        expect(tiles).toHaveLength(10);
+        for (const tile of tiles) {
+          expect(tile.width).toBe(tile.cssWidth * density);
+          expect(tile.height).toBe(tile.cssHeight * density);
+          expect(Math.max(tile.width, tile.height)).toBeLessThanOrEqual(4096);
+        }
+        const last = tiles.at(-1);
+        expect(last.left + last.cssWidth).toBe(width * 20 + 8);
+        expect(last.top + last.cssHeight).toBe(height * 20 + 8);
+        // Outer walls must remain unbroken on both sides of every tile seam.
+        const seamAlphas = await page.locator('#maze canvas').evaluateAll((nodes, density) =>
+          nodes.slice(1).flatMap((tile, index) => {
+            const previous = nodes[index];
+            const horizontal = parseFloat(tile.style.left) > 0;
+            return [previous, tile].map((node, side) => {
+              const x = horizontal ? (side === 0 ? node.width - 1 : 0) : 4 * density;
+              const y = horizontal ? 4 * density : (side === 0 ? node.height - 1 : 0);
+              return node.getContext('2d').getImageData(x, y, 1, 1).data[3];
+            });
+          }), density);
+        expect(seamAlphas.every(alpha => alpha > 0)).toBe(true);
+        await page.locator('#solve').click();
+        const exitPixel = await page.locator('#maze canvas').last().evaluate((tile, { width, height, density }) => {
+          const x = (width * 20 + 4 - parseFloat(tile.style.left)) * density;
+          const y = ((height - 0.5) * 20 + 4 - parseFloat(tile.style.top)) * density;
+          return [...tile.getContext('2d').getImageData(x, y, 1, 1).data];
+        }, { width, height, density });
+        // Rounded endpoints can have slightly translucent antialiased pixels.
+        for (const [index, expected] of [255, 212, 121, 255].entries()) {
+          expect(Math.abs(exitPixel[index] - expected)).toBeLessThanOrEqual(2);
+        }
+        await page.locator('#restart').click();
+        const crossing = await page.evaluate(() => {
+          const route = Maze.solveMaze(maze);
+          const screenPoint = room => Maze.roomPoint(maze, room).map(n => n * 20 + 4);
+          const axis = maze.width > maze.height ? 0 : 1;
+          const nextIndex = route.findIndex((room, index) => index > 0
+            && (screenPoint(room)[axis] < 2048) !== (screenPoint(route[index - 1])[axis] < 2048));
+          // Start immediately before a real passage across the first tile seam.
+          trace.path.splice(0, trace.path.length, ...route.slice(0, nextIndex));
+          render();
+          const start = screenPoint(route[nextIndex - 1]);
+          const end = screenPoint(route[nextIndex]);
+          const bounds = document.getElementById('maze').getBoundingClientRect();
+          window.scrollTo(window.scrollX + bounds.left + start[0] - innerWidth / 2,
+            window.scrollY + bounds.top + start[1] - innerHeight / 2);
+          const rect = document.getElementById('maze').getBoundingClientRect();
+          return { start: [rect.left + start[0], rect.top + start[1]],
+            end: [rect.left + end[0], rect.top + end[1]], target: route[nextIndex] };
+        });
+        await page.mouse.move(...crossing.start);
+        await page.mouse.down();
+        await page.mouse.move(...crossing.end, { steps: 8 });
+        await page.mouse.up();
+        expect(await page.evaluate(() => trace.path.at(-1))).toBe(crossing.target);
+        // Resizing removes surplus tiles and leaves the maze interactive.
+        await page.locator('#width').fill('1');
+        await page.locator('#height').fill('2');
+        await page.getByRole('button', { name: 'Generate', exact: true }).click();
+        await expect(page.locator('#maze canvas')).toHaveCount(1);
+        const entrance = await page.evaluate(() => Maze.roomPoint(maze, maze.entrance));
+        await page.locator('#maze').click({ position: { x: entrance[0] * 20 + 4, y: entrance[1] * 20 + 4 } });
+        await expect(page.locator('#status')).toContainText('Tap ahead or keep dragging');
+        expect(errors).toEqual([]);
+      });
+    }
+  });
+}

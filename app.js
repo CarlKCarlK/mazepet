@@ -15,7 +15,7 @@ function input(id) {
 /** @typedef {{width: number, height: number, tiles: string[], removed: Set<number>, passages: number[][], entrance: number, exit: number}} Layout */
 /** @typedef {ReturnType<typeof Maze.createTrace>} Trace */
 /** @typedef {{maze: Layout, trace: Trace, solution: number[], status: string | null}} View */
-const canvas = /** @type {HTMLCanvasElement} */ (element('maze'));
+const canvas = element('maze');
 const size = 20, margin = 4;
 /** @type {Layout} */
 let maze;
@@ -96,55 +96,90 @@ function render() {
     : 'Interactive diagonal maze. Tap ahead or drag from the upper-left entrance to the lower-right exit.');
   const width = maze.width * size + 2 * margin;
   const height = maze.height * size + 2 * margin;
-  // Cap backing resolution for large mazes while keeping logical cells square.
-  const ratio = Math.min(window.devicePixelRatio || 1, 2, 8192 / Math.max(width, height));
-  canvas.width = Math.ceil(width * ratio);
-  canvas.height = Math.ceil(height * ratio);
+  // Tile the drawing so a long maze never lowers resolution on either axis.
+  // Each backing canvas stays at most 4096 pixels wide/high at 2x density.
+  const ratio = Math.min(window.devicePixelRatio || 1, 2);
+  const tileSize = 2048;
   canvas.style.width = width + 'px';
   canvas.style.height = height + 'px';
-  const context = canvas.getContext('2d');
-  if (!context) throw new Error('Canvas drawing is unavailable.');
-  const ctx = context;
-  ctx.scale(ratio, ratio);
-  ctx.translate(margin, margin);
-  ctx.strokeStyle = '#c6b3ff';
-  ctx.lineWidth = 1.5;
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  ctx.beginPath();
-  /** @param {number} x1 @param {number} y1 @param {number} x2 @param {number} y2 */
-  function wall(x1, y1, x2, y2) { ctx.moveTo(x1 * size, y1 * size); ctx.lineTo(x2 * size, y2 * size); }
-  // Use exact shared endpoints. Font glyph bounding boxes do not guarantee
-  // that the ends of a diagonal actually reach opposite tile corners.
-  maze.tiles.forEach((tile, i) => {
-    if (maze.removed.has(i)) return;
-    const x = i % maze.width, y = Math.floor(i / maze.width);
-    if (tile === '/') wall(x, y + 1, x + 1, y);
-    else wall(x, y, x + 1, y + 1);
-  });
-  wall(0, 0, maze.width, 0);
-  wall(0, maze.height, maze.width, maze.height);
-  if (maze.height > 1) {
-    wall(0, 1, 0, maze.height);
-    wall(maze.width, 0, maze.width, maze.height - 1);
-  }
-  ctx.stroke();
   const path = solution.length ? solution : trace.path;
-  if (path.length) {
-    ctx.strokeStyle = '#ffd479';
-    ctx.lineWidth = 2.5;
-    ctx.beginPath();
-    const points = Maze.solutionPoints(maze, path, solution.length > 0 || trace.complete);
-    ctx.moveTo(points[0][0] * size, points[0][1] * size);
-    for (const [x, y] of points.slice(1)) ctx.lineTo(x * size, y * size);
-    ctx.stroke();
+  const points = path.length
+    ? Maze.solutionPoints(maze, path, solution.length > 0 || trace.complete) : [];
+  const route = new Path2D();
+  if (points.length) {
+    route.moveTo(points[0][0] * size, points[0][1] * size);
+    for (let i = 1; i < points.length; i++) route.lineTo(points[i][0] * size, points[i][1] * size);
   }
-  if (!solution.length) {
-    const [x, y] = Maze.roomPoint(maze, trace.path[trace.path.length - 1]);
-    ctx.fillStyle = trace.complete ? '#9fffc3' : '#ffd479';
+  let tileIndex = 0;
+  for (let top = 0; top < height; top += tileSize) {
+    for (let left = 0; left < width; left += tileSize) {
+      let tile = /** @type {HTMLCanvasElement | undefined} */ (canvas.children[tileIndex]);
+      if (!tile) {
+        tile = document.createElement('canvas');
+        tile.setAttribute('aria-hidden', 'true');
+        canvas.append(tile);
+      }
+      tileIndex++;
+      const tileWidth = Math.min(tileSize, width - left);
+      const tileHeight = Math.min(tileSize, height - top);
+      tile.width = Math.ceil(tileWidth * ratio);
+      tile.height = Math.ceil(tileHeight * ratio);
+      Object.assign(tile.style, {
+        left: left + 'px', top: top + 'px',
+        width: tileWidth + 'px', height: tileHeight + 'px',
+      });
+      const ctx = tile.getContext('2d');
+      if (!ctx) throw new Error('Canvas drawing is unavailable.');
+      ctx.scale(tile.width / tileWidth, tile.height / tileHeight);
+      ctx.translate(margin - left, margin - top);
+      drawTile(ctx, left, top, tileWidth, tileHeight);
+    }
+  }
+  while (canvas.children.length > tileIndex) canvas.lastElementChild?.remove();
+
+  /** @param {CanvasRenderingContext2D} ctx
+   * @param {number} left @param {number} top
+   * @param {number} tileWidth @param {number} tileHeight */
+  function drawTile(ctx, left, top, tileWidth, tileHeight) {
+    ctx.strokeStyle = '#c6b3ff';
+    ctx.lineWidth = 1.5;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
     ctx.beginPath();
-    ctx.arc(x * size, y * size, 4, 0, 2 * Math.PI);
-    ctx.fill();
+    /** @param {number} x1 @param {number} y1 @param {number} x2 @param {number} y2 */
+    function wall(x1, y1, x2, y2) { ctx.moveTo(x1 * size, y1 * size); ctx.lineTo(x2 * size, y2 * size); }
+    // Use exact shared endpoints. Font glyph bounding boxes do not guarantee
+    // that the ends of a diagonal actually reach opposite tile corners.
+    // Include neighboring cells so strokes crossing a tile edge join seamlessly.
+    const firstX = Math.max(0, Math.floor((left - margin) / size) - 1);
+    const lastX = Math.min(maze.width - 1, Math.ceil((left + tileWidth - margin) / size));
+    const firstY = Math.max(0, Math.floor((top - margin) / size) - 1);
+    const lastY = Math.min(maze.height - 1, Math.ceil((top + tileHeight - margin) / size));
+    for (let y = firstY; y <= lastY; y++) for (let x = firstX; x <= lastX; x++) {
+      const i = y * maze.width + x;
+      if (maze.removed.has(i)) continue;
+      if (maze.tiles[i] === '/') wall(x, y + 1, x + 1, y);
+      else wall(x, y, x + 1, y + 1);
+    }
+    wall(0, 0, maze.width, 0);
+    wall(0, maze.height, maze.width, maze.height);
+    if (maze.height > 1) {
+      wall(0, 1, 0, maze.height);
+      wall(maze.width, 0, maze.width, maze.height - 1);
+    }
+    ctx.stroke();
+    if (path.length) {
+      ctx.strokeStyle = '#ffd479';
+      ctx.lineWidth = 2.5;
+      ctx.stroke(route);
+    }
+    if (!solution.length) {
+      const [x, y] = Maze.roomPoint(maze, trace.path[trace.path.length - 1]);
+      ctx.fillStyle = trace.complete ? '#9fffc3' : '#ffd479';
+      ctx.beginPath();
+      ctx.arc(x * size, y * size, 4, 0, 2 * Math.PI);
+      ctx.fill();
+    }
   }
 }
 /** @param {PointerEvent} event */

@@ -55,7 +55,8 @@
     100% { transform: scale(1); }
   }
   @media (prefers-reduced-motion: reduce) { .completion-card { animation: none; } }
-  canvas { display: block; touch-action: pinch-zoom; cursor: crosshair; }
+  #maze { position: relative; touch-action: pinch-zoom; cursor: crosshair; }
+  #maze canvas { position: absolute; display: block; pointer-events: none; }
   #status { color: #ffd479; }
   p { font-size: 13px; color: #b7adce; line-height: 1.5; }
   .hint { margin: 8px 0; }
@@ -94,7 +95,7 @@
   <p>Version <span id="version">development</span>. Share the address-bar URL to play the same maze and mode.</p>
 </details>
 <div class="viewport" id="maze-frame">
-  <canvas id="maze" role="img" aria-label="Interactive diagonal maze. Tap ahead or drag from the upper-left entrance to the lower-right exit." aria-describedby="instructions"></canvas>
+  <div id="maze" role="img" aria-label="Interactive diagonal maze. Tap ahead or drag from the upper-left entrance to the lower-right exit." aria-describedby="instructions"></div>
   <div class="completion" id="completion" role="status" aria-live="polite" hidden>
     <button class="completion-card" id="dismiss-completion" type="button" aria-label="Maze complete! Dismiss announcement"><strong>Maze complete!</strong><span>You reached the exit.</span></button>
   </div>

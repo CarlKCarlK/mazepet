@@ -30,6 +30,7 @@
   header { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; margin-bottom: 12px; }
   h1 { font-size: 22px; margin: 0; font-weight: 600; }
   form { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 0; }
+  .size-fields, .actions { display: flex; align-items: center; gap: 10px; }
   label { display: flex; align-items: center; gap: 6px; font-size: 13px; }
   input, button { font: inherit; border-radius: 5px; padding: 6px 9px; }
   input { width: 56px; border: 1px solid #625b83; background: #242039; color: inherit; }
@@ -56,10 +57,14 @@
 <header>
   <h1>mazepet</h1>
   <form id="controls">
-    <label>Width <input id="width" type="number" min="1" value="40" required></label>
-    <label>Height <input id="height" type="number" min="1" value="25" required></label>
-    <button type="submit">Generate</button>
-    <button id="solve" type="button">Solve</button>
+    <div class="size-fields">
+      <label>Width <input id="width" type="number" min="1" value="40" required></label>
+      <label>Height <input id="height" type="number" min="1" value="25" required></label>
+    </div>
+    <div class="actions">
+      <button type="submit">Generate</button>
+      <button id="solve" type="button">Solve</button>
+    </div>
   </form>
   <a class="source" href="https://github.com/CarlKCarlK/mazepet">GitHub</a>
 </header>

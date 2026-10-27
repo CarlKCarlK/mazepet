@@ -8,7 +8,19 @@ Inspired by the Commodore 64's [10 PRINT](https://10print.org/), which draws a m
 10 PRINT CHR$(205.5+RND(1)); : GOTO 10
 ```
 
-mazepet starts with that random `/` and `\` pattern and repairs it into a connected, solvable maze. It tries to preserve the original picture: opening passages, attaching wall islands to the border, and narrowing wide halls with whole diagonals. It aims for fewer edits rather than guaranteeing a global minimum.
+mazepet repairs that random picture into a solvable maze while trying to preserve its original diagonals.
+
+## Algorithm sketch
+
+1. **Draw the picture.** Fill each tile randomly with `/` or `\`, splitting it into two triangular rooms.
+2. **Connect the passages.** Visit diagonals in random order. Erase a diagonal when its two rooms belong to disconnected passage regions, until every room is reachable.
+3. **Attach wall islands.** Search through empty tiles for chains of diagonals that connect detached walls to the border-connected wall network. Favor larger islands when attachment paths compete for a tile.
+4. **Remove unattached islands.** Erase any wall sections that could not be connected to the border.
+5. **Narrow the halls.** Repeatedly try filling empty tiles with their original diagonal, then its opposite. Keep a diagonal only if it extends the border-connected walls to a new corner without cutting off passages.
+
+Union-find tracks passage regions and, separately, connected walls. Island attachment uses breadth-first search. All interior walls remain whole diagonals; no horizontal, vertical, or half-tile walls are added. The repair favors fewer changed tiles but does not guarantee the minimum possible number of edits.
+
+The solver uses breadth-first search through the triangular rooms. Its highlighted route follows passage openings, with small wall-safe shortcuts to remove unnecessary jogs.
 
 ## Run locally
 

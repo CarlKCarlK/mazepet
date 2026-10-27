@@ -8,7 +8,7 @@ const vm = require('node:vm');
 const { execFileSync } = require('node:child_process');
 const { buildSite, redirect } = require('./scripts/build-site');
 
-test('release builds retain exact tagged files and choose stable aliases numerically', t => {
+test('release builds retain exact tagged files and select the latest release numerically', t => {
   const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'mazepet-release-'));
   t.after(() => fs.rmSync(repo, { recursive: true, force: true }));
   const git = (...args) => execFileSync('git', args, { cwd: repo, stdio: 'pipe' });
@@ -33,7 +33,8 @@ test('release builds retain exact tagged files and choose stable aliases numeric
   assert.deepEqual(buildSite({ repo, out }), ['1.0.0', '1.2.0', '1.10.0', '2.0.0']);
   assert.equal(fs.readFileSync(path.join(out, 'v1.0.0', 'maze.js'), 'utf8'), '// 1.0.0');
   assert.match(fs.readFileSync(path.join(out, 'v1.0.0', 'index.html'), 'utf8'), /content="1.0.0"/);
-  assert.match(fs.readFileSync(path.join(out, 'v1', 'index.html'), 'utf8'), /\.\.\/v1\.10\.0\//);
+  assert.equal(fs.existsSync(path.join(out, 'v1')), false);
+  assert.equal(fs.existsSync(path.join(out, 'v2')), false);
   assert.match(fs.readFileSync(path.join(out, 'index.html'), 'utf8'), /\.\/v2\.0\.0\//);
   assert.equal(fs.readFileSync(path.join(out, 'v1.0.0', 'assets', 'icon.svg'), 'utf8'), '<svg/>');
   assert(fs.existsSync(path.join(out, '.nojekyll')));

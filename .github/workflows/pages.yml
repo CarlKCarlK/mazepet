@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Check out source
         uses: actions/checkout@v7
@@ -31,9 +31,9 @@ jobs:
         run: |
           npm run check
           npm test
-      - name: Install browser for tests
-        run: npx playwright install --with-deps chromium
       - name: Test browser behavior
+        env:
+          PLAYWRIGHT_CHANNEL: chrome
         run: npm run test:browser
       - name: Configure Pages
         uses: actions/configure-pages@v6

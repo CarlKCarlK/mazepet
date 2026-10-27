@@ -68,7 +68,7 @@ function render() {
   element('completion').hidden = !completed;
   element('maze-frame').classList.toggle('completed', completed);
   const toggle = element('toggle-original');
-  toggle.textContent = showOriginal ? 'Show fixed maze' : 'Show original PETSCII';
+  toggle.textContent = showOriginal ? 'Fix' : 'Show original';
   toggle.setAttribute('aria-pressed', String(showOriginal));
   element('layout-note').textContent = showOriginal
     ? 'Original PETSCII: the exit may be unreachable. ' : '';
@@ -178,8 +178,6 @@ for (const name of /** @type {const} */ (['pointerup', 'pointercancel', 'lostpoi
 /** @param {'pushState' | 'replaceState'} method */
 function updateURL(method) {
   history[method](null, '', MazeState.toURL(location.href, currentState));
-  element('share-status').hidden = true;
-  input('share-link').hidden = true;
 }
 element('controls').addEventListener('submit', event => {
   event.preventDefault();
@@ -242,34 +240,3 @@ window.addEventListener('popstate', () => {
   updateURL('replaceState');
 });
 element('version').textContent = /** @type {HTMLMetaElement} */ (document.querySelector('meta[name="mazepet-version"]')).content;
-
-/** @param {string} message */
-function shareMessage(message) {
-  const feedback = element('share-status');
-  feedback.textContent = message;
-  feedback.hidden = false;
-}
-async function copyLink() {
-  const url = MazeState.toURL(location.href, currentState);
-  try {
-    await navigator.clipboard.writeText(url);
-    shareMessage('Link copied!');
-  } catch {
-    const field = input('share-link');
-    field.value = url;
-    field.hidden = false;
-    field.focus();
-    field.select();
-    shareMessage('Copy the selected link to share this maze.');
-  }
-}
-element('copy-link').addEventListener('click', copyLink);
-const shareButton = element('share');
-shareButton.hidden = typeof navigator.share !== 'function';
-shareButton.addEventListener('click', async () => {
-  try {
-    await navigator.share({ title: 'mazepet', url: MazeState.toURL(location.href, currentState) });
-  } catch (error) {
-    if (!(error instanceof Error) || error.name !== 'AbortError') await copyLink();
-  }
-});

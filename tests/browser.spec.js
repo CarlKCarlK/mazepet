@@ -3,23 +3,22 @@ const version = `v${require('../package.json').version}`;
 const pinned = `/${version}/?w=25&h=20&mode=petscii&seed=8ac31f02`;
 const snapshot = page => page.evaluate(() => JSON.stringify({ tiles: maze.tiles, removed: [...maze.removed] }));
 
-test('aliases preserve URL state, canonicalize the version, and reproduce both layouts', async ({ page }) => {
+test('the default URL pins the release and reproduces both layouts', async ({ page }) => {
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.goto('/?w=25&h=20&mode=petscii&seed=8ac31f02#maze');
   await expect(page).toHaveURL(`http://127.0.0.1:8765/${version}/?w=25&h=20&mode=petscii&seed=8ac31f02#maze`);
   await expect(page.locator('#width')).toHaveValue('25');
-  await expect(page.locator('#toggle-original')).toHaveText('Show fixed maze');
+  await expect(page.locator('#toggle-original')).toHaveText('Fix');
   const original = await snapshot(page);
   await page.reload();
   expect(await snapshot(page)).toBe(original);
   await page.locator('#toggle-original').click();
+  await expect(page.locator('#toggle-original')).toHaveText('Show original');
   const fixed = await snapshot(page);
   expect(fixed).not.toBe(original);
   await page.reload();
   expect(await snapshot(page)).toBe(fixed);
-  await page.goto(`/${version.split('.')[0]}/?w=25&h=20&mode=petscii&seed=8ac31f02`);
-  expect(await snapshot(page)).toBe(original);
   expect(errors).toEqual([]);
 });
 
@@ -56,21 +55,6 @@ test('phone fitting only supplies defaults and invalid links remain bounded', as
   expect(Number(await page.locator('#width').inputValue())).toBeLessThan(25);
 });
 
-test('copy fallback exposes the exact link, native sharing cancels quietly', async ({ page }) => {
-  await page.addInitScript(() => {
-    Object.defineProperty(navigator, 'clipboard', { value: { writeText: async () => { throw new Error('denied'); } } });
-    Object.defineProperty(navigator, 'share', { value: async () => { throw new DOMException('Cancelled', 'AbortError'); } });
-  });
-  await page.goto(pinned);
-  await page.locator('#share').click();
-  await expect(page.locator('#share-status')).toBeHidden();
-  await page.locator('#copy-link').click();
-  await expect(page.locator('#share-link')).toBeVisible();
-  await expect(page.locator('#share-link')).toHaveValue(page.url());
-  await page.locator('#toggle-original').click();
-  await expect(page.locator('#share-link')).toBeHidden();
-});
-
 test('completion requires playing, with independent progress in each mode', async ({ page }) => {
   await page.goto(`/${version}/?w=1&h=2&mode=petscii&seed=00000005`);
   // This seed has two backslashes and an entrance-to-exit passage.
@@ -86,21 +70,6 @@ test('completion requires playing, with independent progress in each mode', asyn
   await expect(page.locator('#completion')).toBeVisible();
   await page.locator('#restart').click();
   await expect(page.locator('#completion')).toBeHidden();
-});
-
-test('clipboard and native sharing receive the canonical current URL', async ({ page }) => {
-  await page.addInitScript(() => {
-    Object.defineProperty(navigator, 'clipboard', { value: { writeText: async url => { window.copiedLink = url; } } });
-    Object.defineProperty(navigator, 'share', { value: async data => { window.sharedLink = data.url; } });
-  });
-  await page.goto(pinned);
-  await page.locator('#copy-link').click();
-  await expect(page.locator('#share-status')).toHaveText('Link copied!');
-  expect(await page.evaluate(() => window.copiedLink)).toBe(page.url());
-  await page.locator('#toggle-original').click();
-  await page.locator('#share').click();
-  expect(await page.evaluate(() => window.sharedLink)).toBe(page.url());
-  expect(new URL(page.url()).searchParams.get('mode')).toBe('fixed');
 });
 
 test('unreachable PETSCII exits and excessive cell counts give useful feedback', async ({ page }) => {

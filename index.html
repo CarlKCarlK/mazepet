@@ -80,9 +80,7 @@
       <button type="submit">Generate</button>
       <button id="solve" type="button">Solve</button>
       <button id="restart" type="button">Start over</button>
-      <button id="toggle-original" type="button" aria-controls="maze" aria-pressed="false">Show original PETSCII</button>
-      <button id="share" type="button">Share</button>
-      <button id="copy-link" type="button">Copy link</button>
+      <button id="toggle-original" type="button" aria-controls="maze" aria-pressed="false">Show original</button>
     </div>
   </form>
   <a class="source" href="https://github.com/CarlKCarlK/mazepet">GitHub</a>
@@ -94,8 +92,6 @@
   <p>mazepet repairs that random picture into a solvable maze while trying to preserve its original diagonals.</p>
   <p>Version <span id="version">development</span>. Share a link to play the same maze and mode. Each dimension can be up to 200 cells, with at most 10,000 cells total.</p>
 </details>
-<p id="share-status" role="status" aria-live="polite" hidden></p>
-<input id="share-link" type="text" readonly aria-label="Maze link to copy" hidden style="width: min(90%, 60ch)">
 <div class="viewport" id="maze-frame">
   <canvas id="maze" role="img" aria-label="Interactive diagonal maze. Tap ahead or drag from the upper-left entrance to the lower-right exit." aria-describedby="instructions"></canvas>
   <div class="completion" id="completion" role="status" aria-live="polite" hidden>

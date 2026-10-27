@@ -71,12 +71,6 @@ function buildSite({ repo = process.cwd(), out = path.join(repo, '_site'), previ
     fs.writeFileSync(htmlPath, html);
     manifest.push({ version, commit: tag ? git(['rev-list', '-1', tag]).toString().trim() : 'preview' });
   }
-  // Ascending order means each major alias ends at the latest release of that major.
-  for (const version of versions) {
-    const alias = path.join(out, `v${version.split('.')[0]}`);
-    fs.mkdirSync(alias, { recursive: true });
-    fs.writeFileSync(path.join(alias, 'index.html'), redirect(`../v${version}/`));
-  }
   fs.writeFileSync(path.join(out, 'index.html'), redirect(`./v${versions.at(-1)}/`));
   // Preserve previously published asset URLs used in social cards and bookmarks.
   const latestAssets = path.join(out, `v${versions.at(-1)}`, 'assets');
